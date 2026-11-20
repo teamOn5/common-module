@@ -1,28 +1,104 @@
 name: Publish package to GitHub Packages
 
+# main 에 push 되면 마지막 v* 태그 이후 커밋 메시지(Conventional Commits)를 보고 버전을 자동 결정
+#   feat!: / fix!: ... 또는 본문에 "BREAKING CHANGE"  → major
+#   feat: ...                                         → minor
+#   fix: ... / perf: ...                              → patch
+#   그 외 (docs:, chore:, refactor:, test:, ci: ...)  → 배포하지 않음
+# 필요하면 Actions 탭 → Run workflow 에서 수동으로 강제 실행 가능
 on:
-  release:
-    types: [published]
+  push:
+    branches: [main]
   workflow_dispatch:
+    inputs:
+      bump:
+        description: 'auto: 커밋 메시지로 결정 / 그 외: 강제 지정'
+        type: choice
+        options: [auto, patch, minor, major]
+        default: auto
+
+# 동시에 두 번 실행되어 같은 버전이 계산되는 것을 방지
+concurrency:
+  group: publish
+  cancel-in-progress: false
 
 jobs:
   publish:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
-      packages: write
+      contents: write   # 태그, Release 생성
+      packages: write   # GitHub Packages 배포
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # 기존 태그와 커밋 히스토리 조회
+
+      - name: Calculate next version
+        id: version
+        env:
+          BUMP_INPUT: ${{ inputs.bump || 'auto' }}
+        run: |
+          latest=$(git tag --list 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname | head -n1)
+          if [ -n "$latest" ]; then range="${latest}..HEAD"; else range="HEAD"; fi
+          latest=${latest:-v0.0.0}
+
+          bump="$BUMP_INPUT"
+          if [ "$bump" = "auto" ]; then
+            subjects=$(git log "$range" --format='%s')
+            bodies=$(git log "$range" --format='%b')
+            type='[a-zA-Z]+(\([^)]*\))?'
+            if echo "$subjects" | grep -Eq "^${type}!:" || echo "$bodies" | grep -Eq '^BREAKING[ -]CHANGE:'; then
+              bump=major
+            elif echo "$subjects" | grep -Eq '^feat(\([^)]*\))?:'; then
+              bump=minor
+            elif echo "$subjects" | grep -Eq '^(fix|perf)(\([^)]*\))?:'; then
+              bump=patch
+            else
+              bump=none
+            fi
+          fi
+
+          echo "기준 태그: ${latest} / 결정: ${bump}"
+          if [ "$bump" = "none" ]; then
+            echo "배포 대상 커밋(feat/fix/perf/BREAKING)이 없어 배포를 건너뜁니다."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          IFS='.' read -r major minor patch <<< "${latest#v}"
+          case "$bump" in
+            major) major=$((major + 1)); minor=0; patch=0 ;;
+            minor) minor=$((minor + 1)); patch=0 ;;
+            patch) patch=$((patch + 1)) ;;
+          esac
+          next="${major}.${minor}.${patch}"
+          echo "새 버전: v${next}"
+          echo "version=${next}" >> "$GITHUB_OUTPUT"
+          echo "skip=false" >> "$GITHUB_OUTPUT"
 
       - uses: actions/setup-java@v4
+        if: steps.version.outputs.skip == 'false'
         with:
           distribution: temurin
           java-version: '17'
 
       - uses: gradle/actions/setup-gradle@v4
+        if: steps.version.outputs.skip == 'false'
 
       - name: Publish
-        run: ./gradlew publish
+        if: steps.version.outputs.skip == 'false'
+        run: ./gradlew publish -Pversion=${{ steps.version.outputs.version }}
         env:
           GITHUB_ACTOR: ${{ github.actor }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # 배포가 성공한 경우에만 태그를 남긴다
+      - name: Create tag and release
+        if: steps.version.outputs.skip == 'false'
+        run: |
+          gh release create "v${{ steps.version.outputs.version }}" \
+            --target "${{ github.sha }}" \
+            --title "v${{ steps.version.outputs.version }}" \
+            --generate-notes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
