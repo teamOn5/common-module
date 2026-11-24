@@ -1,0 +1,17 @@
+description = '공통 코어 모듈'
+
+configurations.matching {
+    it.name in ['compileOnly', 'annotationProcessor', 'testCompileOnly', 'testAnnotationProcessor']
+}.configureEach {
+    exclude group: 'org.projectlombok'
+}
+
+dependencies {
+    api 'org.springframework:spring-web'
+}
+
+dependencyManagement {
+    generatedPomCustomization {
+        enabled = false
+    }
+}
