@@ -1,0 +1,9 @@
+description = '공통 모니터링 모듈 (Actuator, Micrometer, Prometheus)'
+
+dependencies {
+    // 이 모듈을 쓰는 서비스에 그대로 전이되도록 api 로 노출
+    api 'org.springframework.boot:spring-boot-starter-actuator'
+    api 'io.micrometer:micrometer-registry-prometheus'
+
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+}

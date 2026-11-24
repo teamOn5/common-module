@@ -1,1 +1,3 @@
 rootProject.name = 'common-module'
+
+include 'common-monitoring'
