@@ -36,6 +36,12 @@ class MonitoringEnvironmentPostProcessorTest {
                 .isEqualTo("health,info,prometheus");
         assertThat(environment.getProperty("management.metrics.tags.application"))
                 .isEqualTo("order-service");
+        assertThat(environment.getProperty("management.metrics.distribution.percentiles-histogram.http.server.requests"))
+                .isEqualTo("true");
+        assertThat(environment.getProperty("eureka.instance.metadata-map[prometheus.scrape]")).isEqualTo("true");
+        assertThat(environment.getProperty("eureka.instance.metadata-map[prometheus.path]"))
+                .isEqualTo("/actuator/prometheus");
+        assertThat(environment.getProperty("eureka.instance.prefer-ip-address")).isEqualTo("true");
     }
 
     @Test

@@ -76,6 +76,10 @@ dependencies {
 |---|---|---|
 | `management.endpoints.web.exposure.include` | `health,info,prometheus` | Actuator 엔드포인트 노출 |
 | `management.metrics.tags.application` | `${spring.application.name:unknown}` | 모든 메트릭에 서비스 이름 태그 부여 |
+| `management.metrics.distribution.percentiles-histogram.http.server.requests` | `true` | p95/p99 레이턴시 집계용 히스토그램 |
+| `eureka.instance.metadata-map[prometheus.scrape]` | `true` | Prometheus `eureka_sd_configs` 수집 대상 표시 |
+| `eureka.instance.metadata-map[prometheus.path]` | `/actuator/prometheus` | Prometheus 수집 경로 |
+| `eureka.instance.prefer-ip-address` | `true` | 컨테이너 환경에서 IP 로 등록 |
 
 포함된 의존성 (`api` 로 전이): `spring-boot-starter-actuator`, `micrometer-registry-prometheus`
 
