@@ -12,6 +12,7 @@ MSA 서비스들이 공통으로 사용하는 모듈 모음입니다.
 | 모듈 | 설명 |
 |---|---|
 | `common-module` (루트) | 공통 모듈 |
+| `common-core` | 에러 코드, 공통 예외, 공통 enum, 페이지 결과 |
 | `common-monitoring` | Actuator, Micrometer, Prometheus 기본 설정 |
 
 > 모든 하위 모듈은 `java-library` 로 빌드되며 Spring Boot 플러그인을 적용하지 않습니다 (bootJar 생성 X).
@@ -65,6 +66,54 @@ dependencies {
 ```
 
 버전은 저장소의 Releases 또는 태그(`common-monitoring-v*`)에서 확인합니다.
+
+---
+
+## common-core
+
+모든 계층(domain, application, adapter)과 모든 서비스가 사용하는 최하위 모듈입니다.
+외부 의존성은 `spring-web` (`HttpStatus`) 하나만 사용합니다 (`api` 로 전이).
+
+| 패키지 | 내용 |
+|---|---|
+| `com.msa.common.core.error` | `ErrorCode`, `CommonErrorCode`, `BusinessException`, `ErrorCodeValidator` |
+| `com.msa.common.core.type` | `UserRole`, `ShopRole`, `MediaType` |
+| `com.msa.common.core.page` | `PageConstants`, `PageResult`, `CursorResult` |
+
+### 에러 코드 규칙
+
+| 구분 | 예시 | 용도 |
+|---|---|---|
+| enum 상수명 | `COUPON_NOT_FOUND` | 코드에서 참조하는 이름 |
+| `code()` | `"COUPON4040"` | 응답 JSON 의 `code` 필드 |
+| `status()` | `HttpStatus.NOT_FOUND` | HTTP 상태 코드, 응답 JSON 의 `status` 필드 (`value()` 로 404) |
+
+- code 형식: `{도메인 접두사}{HTTP 상태 3자리}{순번 1자리}`, 전부 대문자 (`^[A-Z]+\d{4}$`)
+- code 안의 상태 3자리는 `status().value()` 와 같아야 합니다
+- `HttpStatus` 는 Spring 의 `org.springframework.http.HttpStatus` 입니다
+
+각 서비스는 자기 에러 코드 enum 을 만들고, 테스트에서 규칙을 검증합니다.
+
+```java
+public enum CouponErrorCode implements ErrorCode {
+    COUPON_NOT_FOUND(HttpStatus.NOT_FOUND, "COUPON4040", "쿠폰을 찾을 수 없습니다."),
+    COUPON_EXPIRED(HttpStatus.BAD_REQUEST, "COUPON4000", "만료된 쿠폰입니다.");
+    // 생성자, status(), code(), message()
+}
+
+@Test
+void 에러_코드_규칙을_지킨다() {
+    ErrorCodeValidator.validate(CouponErrorCode.values());
+}
+```
+
+### 예외
+
+예외는 `BusinessException` 하나로 통일합니다. detail 은 **로그용**이고, 사용자 응답에는 `errorCode.message()` 를 씁니다.
+
+```java
+throw new BusinessException(CouponErrorCode.COUPON_NOT_FOUND, "couponId=" + couponId);
+```
 
 ---
 
@@ -151,6 +200,8 @@ Spring Boot 3 서비스에서도 동작합니다. Boot 3 는 `org.springframewor
 | `feat:` | minor |
 | `fix:`, `perf:` | patch |
 | `docs:`, `chore:`, `refactor:`, `test:`, `ci:` 등 | 배포 안 함 |
+
+콜론 앞 공백도 허용합니다 (`feat : 공통 예외 및 에러코드 추가` 도 minor).
 
 배포 대상은 커밋 메시지의 scope 가 아니라 **변경된 파일 경로**로 결정됩니다.
 scope 는 이력을 읽기 쉽게 하는 용도로 쓰면 됩니다.

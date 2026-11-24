@@ -62,11 +62,11 @@ for module in "${MODULES[@]}"; do
       subjects=$(git log "$range" --format='%s' -- "${paths[@]}" "${SHARED_PATHS[@]}")
       bodies=$(git log "$range" --format='%b' -- "${paths[@]}" "${SHARED_PATHS[@]}")
       type='[a-zA-Z]+(\([^)]*\))?'
-      if echo "$subjects" | grep -Eq "^${type}!:" || echo "$bodies" | grep -Eq '^BREAKING[ -]CHANGE:'; then
+      if echo "$subjects" | grep -Eq "^${type}![[:space:]]*:" || echo "$bodies" | grep -Eq '^BREAKING[ -]CHANGE:'; then
         bump=major
-      elif echo "$subjects" | grep -Eq '^feat(\([^)]*\))?:'; then
+      elif echo "$subjects" | grep -Eq '^feat(\([^)]*\))?[[:space:]]*:'; then
         bump=minor
-      elif echo "$subjects" | grep -Eq '^(fix|perf)(\([^)]*\))?:'; then
+      elif echo "$subjects" | grep -Eq '^(fix|perf)(\([^)]*\))?[[:space:]]*:'; then
         bump=patch
       fi
     fi
