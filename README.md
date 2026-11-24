@@ -115,6 +115,10 @@ management:
 `MonitoringEnvironmentPostProcessor` 가 `META-INF/spring.factories` 로 등록되어,
 애플리케이션 시작 시 `commonMonitoringDefaults` 라는 property source 를 맨 뒤(최저 우선순위)에 추가합니다.
 
+Spring Boot 3 서비스에서도 동작합니다. Boot 3 는 `org.springframework.boot.env.EnvironmentPostProcessor` 키로
+등록된 `LegacyMonitoringEnvironmentPostProcessor` 를, Boot 4 는 `MonitoringEnvironmentPostProcessor` 를 사용하며,
+두 키가 모두 읽혀도 기본값은 한 번만 등록됩니다.
+
 ---
 
 ## 배포 (CI/CD)

@@ -71,4 +71,42 @@ class MonitoringEnvironmentPostProcessorTest {
 
         assertThat(registered).contains(MonitoringEnvironmentPostProcessor.class.getName());
     }
+
+    @Test
+    void Boot3용_키로도_등록되어_있다() throws IOException {
+        List<String> registered = new ArrayList<>();
+        Enumeration<URL> resources = getClass().getClassLoader()
+                .getResources(SpringFactoriesLoader.FACTORIES_RESOURCE_LOCATION);
+        while (resources.hasMoreElements()) {
+            Properties properties = PropertiesLoaderUtils.loadProperties(new UrlResource(resources.nextElement()));
+            String value = properties.getProperty("org.springframework.boot.env.EnvironmentPostProcessor");
+            if (value != null) {
+                registered.addAll(List.of(StringUtils.commaDelimitedListToStringArray(value)));
+            }
+        }
+
+        assertThat(registered).contains(LegacyMonitoringEnvironmentPostProcessor.class.getName());
+    }
+
+    @Test
+    void Boot3용_프로세서도_같은_기본값을_적용한다() {
+        StandardEnvironment environment = new StandardEnvironment();
+
+        new LegacyMonitoringEnvironmentPostProcessor().postProcessEnvironment(environment, new SpringApplication());
+
+        assertThat(environment.getProperty("eureka.instance.metadata-map[prometheus.scrape]")).isEqualTo("true");
+        assertThat(environment.getProperty("management.endpoints.web.exposure.include"))
+                .isEqualTo("health,info,prometheus");
+    }
+
+    @Test
+    void 두_프로세서가_모두_실행되어도_한_번만_등록된다() {
+        StandardEnvironment environment = new StandardEnvironment();
+        int before = environment.getPropertySources().size();
+
+        processor.postProcessEnvironment(environment, new SpringApplication());
+        new LegacyMonitoringEnvironmentPostProcessor().postProcessEnvironment(environment, new SpringApplication());
+
+        assertThat(environment.getPropertySources().size()).isEqualTo(before + 1);
+    }
 }
