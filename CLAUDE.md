@@ -47,6 +47,18 @@
 
 ### common-monitoring
 
+### common-web
+
+- HTTP 응답과 예외 변환만 담당한다. Spring 의존성은 `compileOnly` (`spring-boot-starter-webmvc`, `-validation`, `spring-boot-autoconfigure`).
+- 응답은 `ApiResponse` (status, code, message, data, errors, timestamp 순서). null 필드도 JSON 에 포함한다.
+  errors 는 필드 에러가 없으면 null, 있을 때만 리스트다.
+- Controller 응답은 `ApiResponses` 로 만들어 HTTP 상태 코드와 body 의 status 를 항상 일치시킨다.
+- 500 응답에는 내부 예외 메시지를 노출하지 않는다. 로그는 4xx WARN (스택트레이스 없음), 5xx ERROR (스택트레이스 포함).
+- `GlobalExceptionHandler` 는 `CommonWebAutoConfiguration` 에서 `@ConditionalOnMissingBean` 으로 등록한다.
+- 만들지 않는 것: `@CurrentUser`/ArgumentResolver, Feign 설정, traceId, ObjectMapper 전역 설정 변경.
+
+### common-monitoring
+
 - `spring-boot-starter-actuator`, `micrometer-registry-prometheus` 를 `api` 로 노출한다.
 - 기본 설정은 `EnvironmentPostProcessor` 로 **최저 우선순위**에 등록해 서비스 설정이 항상 우선하게 한다.
 - Boot 4 는 `org.springframework.boot.EnvironmentPostProcessor`, Boot 3 는 `org.springframework.boot.env.EnvironmentPostProcessor` 키를 쓴다.
@@ -56,21 +68,22 @@
 ## 코드 스타일
 
 - 주석은 최소한으로 쓴다. 설명조의 긴 주석, 상수별 Javadoc, `@param` 나열, 빌드 파일/스크립트의 설명 주석을 넣지 않는다.
-  요구사항에 명시된 Javadoc 이나 TODO 만 짧게 남긴다.
+  요구사항에 명시된 Javadoc 만 짧게 남기고, TODO 주석은 넣지 않는다.
 - 테스트는 JUnit 5 + AssertJ, 메서드명은 한글 + 언더스코어 (예: `code_가_중복되면_예외`).
 - `README.md` 는 사용법 문서다. 변경 내역, 작업 기록은 넣지 않는다.
 
 ## Git 규칙
 
-- 기본 브랜치: `develop` 에서 작업 브랜치를 만든다. `main`, `develop` 에 직접 push 하지 않는다.
-- 작업 순서: 이슈 생성 → 브랜치 생성 → 작업 → 테스트 → 커밋 → push → PR (`develop` 대상)
+- 기본 브랜치: 이 레포는 develop 없이 `main` 에서 작업 브랜치를 만들고 `main` 으로 PR 한다. `main` 에 직접 push 하지 않는다.
+- 작업 순서: 이슈 생성 → 브랜치 생성 → 작업 → 테스트 → 커밋 → push → PR (`main` 대상)
+- 이슈는 담당자를 요청자로 지정하고, 조직 프로젝트 "O(N) 개발 프로젝트" 에 연결한다.
 - 브랜치명: `{커밋 타입}/#{이슈번호}-{브랜치명}` (예: `feat/#3-common-core`, `fix/#5-error-code`)
   커밋 타입은 `feat`, `fix`, `chore`, `docs`, `refactor`, `test`, `ci` 등이다 (동사 아님).
 - 커밋 메시지: 한글, `{타입} : {메시지} (#{이슈번호})` (예: `feat : 공통 예외 및 에러코드 추가 (#3)`)
 - **커밋 전에 반드시 변경 파일을 표(번호, 파일, 상태, 변경 내용)로 먼저 보여준다.**
 - 테스트가 통과한 경우에만 커밋한다. 캐시된 결과가 아닌지 확인한다 (`--rerun-tasks`).
 - PR 하나의 변경 파일은 20개 이하로 유지한다. 넘을 것 같으면 먼저 알린다.
-- PR 본문의 `close #N` 은 기본 브랜치(`main`)에 머지될 때만 이슈를 닫는다.
+- `main` 에 머지되면 배포가 실행되므로, 배포하지 않을 커밋을 `main` 에 올릴 때는 메시지에 `[skip ci]` 를 붙인다.
 
 ## PR 템플릿
 
