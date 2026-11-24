@@ -1,4 +1,5 @@
 rootProject.name = 'common-module'
 
 include 'common-core'
+include 'common-web'
 include 'common-monitoring'

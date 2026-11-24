@@ -13,6 +13,7 @@ MSA 서비스들이 공통으로 사용하는 모듈 모음입니다.
 |---|---|
 | `common-module` (루트) | 공통 모듈 |
 | `common-core` | 에러 코드, 공통 예외, 공통 enum, 페이지 결과 |
+| `common-web` | 공통 응답 객체, 전역 예외 처리 |
 | `common-monitoring` | Actuator, Micrometer, Prometheus 기본 설정 |
 
 > 모든 하위 모듈은 `java-library` 로 빌드되며 Spring Boot 플러그인을 적용하지 않습니다 (bootJar 생성 X).
@@ -114,6 +115,71 @@ void 에러_코드_규칙을_지킨다() {
 ```java
 throw new BusinessException(CouponErrorCode.COUPON_NOT_FOUND, "couponId=" + couponId);
 ```
+
+---
+
+## common-web
+
+웹 어댑터(Controller)에서 사용하는 공통 응답 객체와 전역 예외 처리입니다.
+의존성만 추가하면 `GlobalExceptionHandler` 가 자동 등록됩니다 (서블릿 웹 애플리케이션).
+
+```groovy
+dependencies {
+    implementation 'com.teamon5:common-web:<버전>'
+}
+```
+
+Spring Web, Validation 은 `compileOnly` 라서 서비스에 `spring-boot-starter-webmvc`(또는 `-web`), `spring-boot-starter-validation` 이 있어야 합니다.
+
+### 응답 형식
+
+```json
+{
+  "status": 400,
+  "code": "COMMON4000",
+  "message": "입력값이 올바르지 않습니다.",
+  "data": null,
+  "errors": [
+    { "field": "discountRate", "value": 150, "reason": "할인율은 100 이하여야 합니다." }
+  ],
+  "timestamp": "2026-11-24T10:00:00.000Z"
+}
+```
+
+- 필드 순서는 고정이고, null 필드도 포함됩니다.
+- `errors` 는 필드 에러가 없으면 `null` 입니다.
+- `password`, `token`, `secret` 이 들어간 필드의 `value` 는 `null` 로 마스킹됩니다.
+
+### Controller 에서 사용
+
+HTTP 상태 코드와 body 의 `status` 가 항상 같도록 `ApiResponses` 로 응답합니다.
+
+```java
+@GetMapping("/coupons/{id}")
+public ResponseEntity<ApiResponse<CouponResponse>> get(@PathVariable Long id) {
+    return ApiResponses.ok(couponService.get(id));
+}
+
+@PostMapping("/coupons")
+public ResponseEntity<ApiResponse<CouponResponse>> create(@Valid @RequestBody CouponRequest request) {
+    return ApiResponses.created(couponService.create(request));
+}
+```
+
+### 예외 처리
+
+| 예외 | 에러 코드 |
+|---|---|
+| `BusinessException` | 예외의 errorCode |
+| `MethodArgumentNotValidException`, `BindException`, `HandlerMethodValidationException`, `ConstraintViolationException` | `INVALID_INPUT` (필드별 errors) |
+| `MethodArgumentTypeMismatchException` | `INVALID_TYPE_VALUE` |
+| `MissingServletRequestParameterException` | `MISSING_PARAMETER` |
+| `HttpMessageNotReadableException` | `INVALID_JSON` |
+| `HttpRequestMethodNotSupportedException` | `METHOD_NOT_ALLOWED` |
+| `NoResourceFoundException`, `NoHandlerFoundException` | `NOT_FOUND` |
+| 그 외 `Exception` | `INTERNAL_SERVER_ERROR` (내부 메시지 노출 안 함) |
+
+직접 처리하고 싶으면 `GlobalExceptionHandler` 를 상속한 빈을 등록하면 기본 핸들러는 등록되지 않습니다.
 
 ---
 
